@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# ESF Generated Data (Don't upload baselines or logs to GitHub!)
+esf_data/
+*.db
+*.log
+
+# OS
+.DS_Store
+ Thumbs.db

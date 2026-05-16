@@ -1,0 +1,344 @@
+# Endpoint Security Framework Configuration
+# For Debian-based Linux Servers
+
+# General Settings
+general:
+  framework_name: "Endpoint Security Framework"
+  version: "1.0.0"
+  debug_mode: false
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  
+# Paths Configuration
+paths:
+  log_dir: "/var/log/esf"
+  db_dir: "/var/lib/esf"
+  alert_dir: "/var/lib/esf/alerts"
+  baseline_dir: "/var/lib/esf/baselines"
+  quarantine_dir: "/var/lib/esf/quarantine"
+  pid_file: "/var/run/esf.pid"
+
+# Process Monitoring
+process_monitor:
+  enabled: true
+  scan_interval: 30  # seconds
+  alert_on:
+    - type: "suspicious_path"
+      paths:
+        - "/tmp"
+        - "/var/tmp"
+        - "/dev/shm"
+        - "/.hidden"
+    - type: "no_executable"
+      description: "Process with no executable path"
+    - type: "hidden_process"
+      description: "Process attempting to hide"
+    - type: "unusual_cpu"
+      threshold: 90  # percentage
+      duration: 60   # seconds
+    - type: "unusual_memory"
+      threshold: 80  # percentage of available RAM
+    - type: "known_malicious_names"
+      names:
+        - "cryptominer"
+        - "xmrig"
+        - "minerd"
+        - "kworkerds"
+        - "kdevtmpfsi"
+        - "kinsing"
+        - "d SetValue"
+        - "masscan"
+        - "nmap"
+        - "hydra"
+        - "medusa"
+        - "john"
+        - "hashcat"
+        - "aircrack-ng"
+  whitelist:
+    processes:
+      - "sshd"
+      - "nginx"
+      - "apache2"
+      - "mysql"
+      - "postgres"
+      - "redis-server"
+      - "docker"
+      - "containerd"
+      - "snapd"
+    users:
+      - "root"
+      - "www-data"
+      - "mysql"
+      - "postgres"
+      - "esf"
+
+# File Integrity Monitoring
+file_integrity:
+  enabled: true
+  scan_interval: 300  # seconds
+  hash_algorithm: "sha256"  # md5, sha1, sha256, sha512
+  monitor_directories:
+    - path: "/etc"
+      recursive: true
+      file_types: ["*"]
+    - path: "/bin"
+      recursive: true
+      file_types: ["*"]
+    - path: "/sbin"
+      recursive: true
+      file_types: ["*"]
+    - path: "/usr/bin"
+      recursive: true
+      file_types: ["*"]
+    - path: "/usr/sbin"
+      recursive: true
+      file_types: ["*"]
+    - path: "/lib"
+      recursive: true
+      file_types: ["*.so*", "*.a"]
+    - path: "/usr/lib"
+      recursive: true
+      file_types: ["*.so*", "*.a"]
+    - path: "/lib/x86_64-linux-gnu"
+      recursive: true
+      file_types: ["*.so*", "*.a"]
+    - path: "/boot"
+      recursive: true
+      file_types: ["*"]
+    - path: "/opt"
+      recursive: true
+      file_types: ["*"]
+  exclude_patterns:
+    - "*.log"
+    - "*.pid"
+    - "/etc/ld.so.cache"
+    - "/etc/mtab"
+    - "/etc/adjtime"
+    - "/etc/bluetooth/*"
+  alert_on_changes:
+    - "modified"
+    - "deleted"
+    - "created"
+    - "permissions_changed"
+    - "owner_changed"
+
+# Anomaly Detection
+anomaly_detection:
+  enabled: true
+  learning_period: 86400  # 24 hours in seconds
+  baseline_update_interval: 604800  # 7 days
+  detection_methods:
+    - name: "login_anomaly"
+      enabled: true
+      parameters:
+        max_failed_logins: 5
+        max_failed_logins_window: 300  # seconds
+        unusual_hours:
+          start: 0
+          end: 6
+    - name: "network_anomaly"
+      enabled: true
+      parameters:
+        max_connections: 1000
+        unusual_ports:
+          - 4444
+          - 5555
+          - 6666
+          - 6667
+          - 7777
+          - 8888
+          - 9999
+          - 31337
+          - 12345
+        outbound_connection_limit: 100
+    - name: "file_anomaly"
+      enabled: true
+      parameters:
+        max_file_creations: 100
+        max_file_creations_window: 60
+        suspicious_extensions:
+          - ".pyc"
+          - ".so"
+          - ".sh"
+          - ".bash"
+        hidden_files_threshold: 10
+    - name: "process_anomaly"
+      enabled: true
+      parameters:
+        max_new_processes: 50
+        max_new_processes_window: 60
+        fork_bomb_threshold: 100
+    - name: "privilege_anomaly"
+      enabled: true
+      parameters:
+        monitor_sudo: true
+        monitor_su: true
+        monitor_new_sudoers: true
+        alert_on_uid_0_creation: true
+
+# Threat Remediation
+remediation:
+  enabled: true
+  auto_remediate: false  # Set to true for automatic action (USE WITH CAUTION)
+  actions:
+    - trigger: "malicious_process"
+      action: "kill_process"
+      require_confirmation: true
+    - trigger: "suspicious_file"
+      action: "quarantine"
+      require_confirmation: true
+    - trigger: "unauthorized_ssh_key"
+      action: "remove_key"
+      require_confirmation: true
+    - trigger: "malicious_cron"
+      action: "remove_cron"
+      require_confirmation: true
+    - trigger: "suspicious_service"
+      action: "disable_service"
+      require_confirmation: true
+  quarantine_retention_days: 30
+
+# Network Monitoring
+network_monitor:
+  enabled: true
+  scan_interval: 60
+  monitor:
+    established_connections: true
+    listening_ports: true
+    dns_queries: false  # Requires additional setup
+  suspicious_ports:
+    - 4444
+    - 5555
+    - 6666
+    - 6667
+    - 7777
+    - 8888
+    - 9999
+    - 31337
+    - 12345
+    - 1337
+  allowed_external_ips: []
+  block_suspicious_ips: false
+
+# User Monitoring
+user_monitor:
+  enabled: true
+  monitor_login_attempts: true
+  monitor_sudo_usage: true
+  monitor_user_creation: true
+  monitor_group_changes: true
+  monitor_ssh_keys: true
+  monitor_cron_jobs: true
+  max_failed_logins: 5
+  lockout_duration: 900  # seconds
+  alert_on:
+    - "brute_force_attempt"
+    - "new_user_created"
+    - "user_added_to_sudo"
+    - "unauthorized_ssh_key"
+    - "suspicious_cron_job"
+    - "password_change"
+    - "shell_change"
+
+# Service Hardening
+service_hardening:
+  enabled: true
+  check_on_start: true
+  services:
+    ssh:
+      check_config: true
+      recommended_settings:
+        PermitRootLogin: "no"
+        PasswordAuthentication: "no"
+        PubkeyAuthentication: "yes"
+        PermitEmptyPasswords: "no"
+        MaxAuthTries: 3
+        X11Forwarding: "no"
+        UseDNS: "no"
+        AllowTcpForwarding: "no"
+        ClientAliveInterval: 300
+        ClientAliveCountMax: 2
+    cron:
+      check_permissions: true
+      restrict_access: true
+    apt:
+      check_sources: true
+      verify_signatures: true
+
+# Notification Settings
+notifications:
+  enabled: true
+  methods:
+    log_file:
+      enabled: true
+      path: "/var/log/esf/alerts.log"
+    syslog:
+      enabled: true
+      facility: "auth"
+      severity: "warning"
+    email:
+      enabled: false
+      smtp_host: "localhost"
+      smtp_port: 587
+      smtp_tls: true
+      sender: "esf@localhost"
+      recipients: []
+      username: ""
+      password: ""
+    webhook:
+      enabled: false
+      url: ""
+      method: "POST"
+      headers: {}
+  
+  # Alert severity levels
+  severity_levels:
+    - name: "critical"
+      color: "red"
+      notify_immediately: true
+    - name: "high"
+      color: "red"
+      notify_immediately: true
+    - name: "medium"
+      color: "yellow"
+      notify_immediately: false
+    - name: "low"
+      color: "blue"
+      notify_immediately: false
+    - name: "info"
+      color: "green"
+      notify_immediately: false
+
+# Database Settings
+database:
+  type: "sqlite"  # sqlite or postgresql
+  sqlite:
+    path: "/var/lib/esf/esf.db"
+  postgresql:
+    host: "localhost"
+    port: 5432
+    database: "esf"
+    user: "esf"
+    password: ""
+
+# Performance Settings
+performance:
+  max_cpu_usage: 30  # percentage
+  max_memory_usage: 256  # MB
+  thread_pool_size: 4
+  queue_size: 1000
+  batch_size: 100
+
+# Reporting
+reporting:
+  enabled: true
+  generate_daily_report: true
+  generate_weekly_report: true
+  report_format: "json"  # json, text, html
+  report_retention_days: 90
+  include_in_report:
+    - "threats_detected"
+    - "files_changed"
+    - "login_attempts"
+    - "process_anomalies"
+    - "network_anomalies"
+    - "remediation_actions"
